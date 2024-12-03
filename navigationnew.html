@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blind Navigation System</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Leaflet.js Styles -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <style>
+        /* Styling for the map container */
+        #map {
+            height: 400px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        /* Keep existing styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            text-align: center;
+            padding: 20px;
+        }
+        header {
+            background-color: #005f73;
+            color: white;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        #video-container {
+            position: relative;
+            display: inline-block;
+        }
+        #videoInput {
+            border: 2px solid #005f73;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        button {
+            background-color: #005f73;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 18px;
+            margin-top: 20px;
+        }
+        button:hover {
+            background-color: #008c85;
+        }
+    </style>
+
+    <!-- OpenCV.js -->
+    <script async src="https://docs.opencv.org/master/opencv.js"></script>
+
+    <!-- Leaflet.js -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Blind Navigation System</h1>
+        <p>Use this system to navigate safely with obstacle detection, maps, and voice instructions.</p>
+    </header>
+
+    <!-- Video and Obstacle Detection Section -->
+    <div id="video-container">
+        <video id="videoInput" width="640" height="480" autoplay></video>
+        <canvas id="canvasOutput" width="640" height="480"></canvas>
+    </div>
+    <button id="startButton">Start Detection</button>
+
+    <!-- Map Section -->
+    <div id="map"></div>
+
+    <script>
+        // Initialize OpenCV.js for Obstacle Detection
+        cv.onRuntimeInitialized = () => {
+            const videoInput = document.getElementById("videoInput");
+            const canvasOutput = document.getElementById("canvasOutput");
+            const startButton = document.getElementById("startButton");
+            const synth = window.speechSynthesis;
+
+            function speak(text) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                synth.speak(utterance);
+            }
+
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function (stream) {
+                    videoInput.srcObject = stream;
+                })
+                .catch(function (err) {
+                    console.log("Error: " + err);
+                });
+
+            function detectObstacles() {
+                let src = cv.imread(videoInput);
+                let gray = new cv.Mat();
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                let edges = new cv.Mat();
+                cv.Canny(gray, edges, 50, 150);
+
+                let contours = new cv.MatVector();
+                let hierarchy = new cv.Mat();
+                cv.findContours(edges, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+
+                for (let i = 0; i < contours.size(); i++) {
+                    let contour = contours.get(i);
+                    if (cv.contourArea(contour) > 1000) {
+                        let rect = cv.boundingRect(contour);
+                        cv.rectangle(src, rect, [0, 255, 0, 255], 2);
+                        speak("Obstacle detected ahead."); // Voice alert for obstacles
+                    }
+                }
+
+                cv.imshow(canvasOutput, src);
+                src.delete(); gray.delete(); edges.delete(); contours.delete(); hierarchy.delete();
+            }
+
+            startButton.addEventListener("click", function () {
+                setInterval(detectObstacles, 1000); // Run obstacle detection repeatedly
+            });
+        };
+
+        // Initialize Leaflet.js Map
+        const map = L.map('map').setView([51.505, -0.09], 13); // Default location (can be updated dynamically)
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Add a marker (can represent a detected obstacle location or user)
+        const marker = L.marker([51.505, -0.09]).addTo(map);
+        marker.bindPopup("You are here!").openPopup();
+    </script>
+</body>
+</html>
