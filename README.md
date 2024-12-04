@@ -34,7 +34,7 @@ Key Features
 
    5. Termination:
         The camera and OpenCV windows are properly released when the user exits.
-      [NOTE:-to terminate the code press 'Q' ,'q']
+      [NOTE:-to terminate the code press 'Q' or 'q']
 
 Requirements
 
